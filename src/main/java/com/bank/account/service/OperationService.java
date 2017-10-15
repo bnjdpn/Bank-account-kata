@@ -6,7 +6,9 @@ import com.bank.account.model.Operation;
 import com.bank.account.repository.AccountRepository;
 import com.bank.account.repository.OperationRepository;
 import java.time.Instant;
+import java.util.Currency;
 import java.util.List;
+import javax.inject.Inject;
 import org.springframework.stereotype.Service;
 import static com.bank.account.util.CurrencyUtil.convertAmount;
 import static com.bank.account.util.ValidatorUtil.validate;
@@ -19,8 +21,8 @@ public class OperationService {
     private AccountRepository accountRepository;
     private OperationRepository operationRepository;
 
-    public OperationService(AccountRepository accountRepository,
-                            OperationRepository operationRepository) {
+    @Inject
+    public OperationService(AccountRepository accountRepository, OperationRepository operationRepository) {
         this.accountRepository = requireNonNull(accountRepository);
         this.operationRepository = requireNonNull(operationRepository);
     }
@@ -38,7 +40,7 @@ public class OperationService {
     public void saveOperation(Operation operation) {
         validate(operation);
 
-        Account account = requireNonNull(accountRepository.findOne(operation.getAccountId()));
+        Account account = getAccount(operation);
 
         double newPotentialAccountAmount = getNewPotentialAccountAmount(account, operation);
 
@@ -52,13 +54,23 @@ public class OperationService {
         operationRepository.save(requireNonNull(operation));
     }
 
+    private Account getAccount(Operation operation) {
+        return requireNonNull(accountRepository.findOne(operation.getAccountId()));
+    }
+
     private double getNewPotentialAccountAmount(Account account, Operation operation) {
+
+        double accountAmount = account.getAmount();
+        double operationAmount = operation.getAmount();
+
+        Currency accountCurrency = account.getCurrency();
+        Currency operationCurrency = operation.getCurrency();
 
         double
             operationAmountWithAccountCurrency =
-            convertAmount(operation.getAmount(), operation.getCurrency(), account.getCurrency());
+            convertAmount(operationAmount, operationCurrency, accountCurrency);
 
-        return account.getAmount() + operationAmountWithAccountCurrency;
+        return accountAmount + operationAmountWithAccountCurrency;
     }
 
     private boolean isOperationAllowed(Account account, double newPotentialAccountAmount) {
